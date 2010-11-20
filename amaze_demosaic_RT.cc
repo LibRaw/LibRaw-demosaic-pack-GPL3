@@ -82,7 +82,9 @@ void CLASS amaze_demosaic_RT() {
 
 	volatile double progress = 0.0;
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+#if defined (LIBRAW_USE_OPENMP)
 #pragma omp parallel
+#endif
 {
 	//position of top/left corner of the tile
 	int top, left;
@@ -228,10 +230,12 @@ void CLASS amaze_demosaic_RT() {
 		if (FC(0,0)==0) {ey=0; ex=0;} else {ey=1; ex=1;}
 	}
 
+#if defined (LIBRAW_USE_OPENMP)
 	// Main algorithm: Tile loop
 	//#pragma omp parallel for shared(rawData,height,width,red,green,blue) private(top,left) schedule(dynamic)
 	//code is openmp ready; just have to pull local tile variable declarations inside the tile loop
 #pragma omp for schedule(dynamic) nowait
+#endif
 	for (top=winy-16; top < winy+height; top += TS-32)
 		for (left=winx-16; left < winx+width; left += TS-32) {
 			//location of tile bottom edge
