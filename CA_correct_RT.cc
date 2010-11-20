@@ -22,7 +22,7 @@
 //
 ////////////////////////////////////////////////////////////////
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-int RawImageSource::LinEqSolve(int nDim, float* pfMatr, float* pfVect, float* pfSolution) 
+int CLASS LinEqSolve(int nDim, float* pfMatr, float* pfVect, float* pfSolution) 
 {
 //==============================================================================
 // return 1 if system not solving, 0 if system solved
@@ -94,7 +94,7 @@ int RawImageSource::LinEqSolve(int nDim, float* pfMatr, float* pfVect, float* pf
 //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-void RawImageSource::CA_correct_RT() { 
+void CLASS CA_correct_RT() { 
 
 #define TS 256		// Tile size
 //#define border 8
@@ -103,10 +103,8 @@ void RawImageSource::CA_correct_RT() {
 	#define PIX_SORT(a,b) { if ((a)>(b)) {temp=(a);(a)=(b);(b)=temp;} }
 	#define SQR(x) ((x)*(x))
 
-	const float clip_pt = ri->defgain; 
+	const float clip_pt = 1.0 / MIN(MIN(pre_mul[0],pre_mul[1]),pre_mul[2]);
 		
-	// local variables
-	int width=W, height=H;
 	//temporary array to store simple interpolation of G
 	float (*Gtmp);
 	Gtmp = (float (*)) calloc ((height)*(width), sizeof *Gtmp);
@@ -256,8 +254,8 @@ void RawImageSource::CA_correct_RT() {
 					c = FC(rr,cc);
 					indx=row*width+col;
 					indx1=rr*TS+cc;
-					rgb[indx1][c] = (rawData[row][col])/65535.0f;
-					//rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
+					//rgb[indx1][c] = (rawData[row][col])/65535.0f;
+					rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
 				}
 			
 			// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -273,8 +271,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=ccmin; cc<ccmax; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][left+cc])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][left+cc])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
 					}
 			}
 			if (ccmin>0) {
@@ -288,8 +286,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=rrmin; rr<rrmax; rr++)
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(width-cc-2)])/65535.0f;
-						//rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(width-cc-2)])/65535.0f;
+						rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 					}
 			}
 			
@@ -298,32 +296,32 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+cc][c] = (rawData[border2-rr][border2-cc])/65535.0f;
-						//rgb[(rr)*TS+cc][c] = (rgb[(border2-rr)*TS+(border2-cc)][c]);//for dcraw implementation
+						//rgb[(rr)*TS+cc][c] = (rawData[border2-rr][border2-cc])/65535.0f;
+						rgb[(rr)*TS+cc][c] = (rgb[(border2-rr)*TS+(border2-cc)][c]);//for dcraw implementation
 					}
 			}
 			if (rrmax<rr1 && ccmax<cc1) {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(height-rr-2)][(width-cc-2)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(height-rr-2)][(width-cc-2)])/65535.0f;
+						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 					}
 			}
 			if (rrmin>0 && ccmax<cc1) {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+ccmax+cc][c] = (rawData[(border2-rr)][(width-cc-2)])/65535.0f;
-						//rgb[(rr)*TS+ccmax+cc][c] = (image[(border2-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rr)*TS+ccmax+cc][c] = (rawData[(border2-rr)][(width-cc-2)])/65535.0f;
+						rgb[(rr)*TS+ccmax+cc][c] = (image[(border2-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 					}
 			}
 			if (rrmax<rr1 && ccmin>0) {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][(border2-cc)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(border2-cc)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][(border2-cc)])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(border2-cc)][c])/65535.0f;//for dcraw implementation
 					}
 			}
 			
@@ -470,7 +468,7 @@ void RawImageSource::CA_correct_RT() {
 				//data structure: blockshifts[blocknum][R/B][v/h]
 			}
 			
-			if(plistener) plistener->setProgress(0.5*fabs((float)top/height));
+			//if(plistener) plistener->setProgress(0.5*fabs((float)top/height));
 
 		}
 	}
@@ -611,8 +609,8 @@ void RawImageSource::CA_correct_RT() {
 					indx=row*width+col;
 					indx1=rr*TS+cc;	
 					//rgb[indx1][c] = image[indx][c]/65535.0f;
-					rgb[indx1][c] = (rawData[row][col])/65535.0f;
-					//rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
+					//rgb[indx1][c] = (rawData[row][col])/65535.0f;
+					rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
 
 					if ((c&1)==0) rgb[indx1][1] = Gtmp[indx];
 				}
@@ -630,8 +628,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=ccmin; cc<ccmax; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][left+cc])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][left+cc])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
 
 						rgb[(rrmax+rr)*TS+cc][1] = Gtmp[(height-rr-2)*width+left+cc];
 					}
@@ -648,8 +646,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=rrmin; rr<rrmax; rr++)
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(width-cc-2)])/65535.0f;
-						//rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(width-cc-2)])/65535.0f;
+						rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 
 						rgb[rr*TS+ccmax+cc][1] = Gtmp[(top+rr)*width+(width-cc-2)];
 					}
@@ -660,8 +658,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+cc][c] = (rawData[border2-rr][border2-cc])/65535.0f;
-						//rgb[(rr)*TS+cc][c] = (rgb[(border2-rr)*TS+(border2-cc)][c]);//for dcraw implementation
+						//rgb[(rr)*TS+cc][c] = (rawData[border2-rr][border2-cc])/65535.0f;
+						rgb[(rr)*TS+cc][c] = (rgb[(border2-rr)*TS+(border2-cc)][c]);//for dcraw implementation
 
 						rgb[(rr)*TS+cc][1] = Gtmp[(border2-rr)*width+border2-cc];
 					}
@@ -670,8 +668,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(height-rr-2)][(width-cc-2)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(height-rr-2)][(width-cc-2)])/65535.0f;
+						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 
 						rgb[(rrmax+rr)*TS+ccmax+cc][1] = Gtmp[(height-rr-2)*width+(width-cc-2)];
 					}
@@ -680,8 +678,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+ccmax+cc][c] = (rawData[(border2-rr)][(width-cc-2)])/65535.0f;
-						//rgb[(rr)*TS+ccmax+cc][c] = (image[(border2-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rr)*TS+ccmax+cc][c] = (rawData[(border2-rr)][(width-cc-2)])/65535.0f;
+						rgb[(rr)*TS+ccmax+cc][c] = (image[(border2-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 
 						rgb[(rr)*TS+ccmax+cc][1] = Gtmp[(border2-rr)*width+(width-cc-2)];
 					}
@@ -690,8 +688,8 @@ void RawImageSource::CA_correct_RT() {
 				for (rr=0; rr<border; rr++) 
 					for (cc=0; cc<border; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][(border2-cc)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(border2-cc)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(height-rr-2)][(border2-cc)])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(border2-cc)][c])/65535.0f;//for dcraw implementation
 
 						rgb[(rrmax+rr)*TS+cc][1] = Gtmp[(height-rr-2)*width+(border2-cc)];
 					}
@@ -795,12 +793,12 @@ void RawImageSource::CA_correct_RT() {
 					indx = row*width + col;
 					c = FC(row,col);
 					 
-					rawData[row][col] = CLIP((int)(65535.0f*rgb[(rr)*TS+cc][c] + 0.5f));
-					//image[indx][c] = CLIP((int)(65535.0*rgb[(rr)*TS+cc][c] + 0.5));//for dcraw implementation
+					//rawData[row][col] = CLIP((int)(65535.0f*rgb[(rr)*TS+cc][c] + 0.5f));
+					image[indx][c] = CLIP((int)(65535.0*rgb[(rr)*TS+cc][c] + 0.5));//for dcraw implementation
 
 				} 
 			
-			if(plistener) plistener->setProgress(0.5+0.5*fabs((float)top/height));
+			//if(plistener) plistener->setProgress(0.5+0.5*fabs((float)top/height));
 
 		}
 	

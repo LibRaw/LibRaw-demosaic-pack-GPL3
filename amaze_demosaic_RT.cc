@@ -24,9 +24,9 @@
 //
 ////////////////////////////////////////////////////////////////
 
-using namespace rtengine;
 
-void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {  
+void CLASS amaze_demosaic_RT() {  
+//void CLASS amaze_demosaic_RT(int winx, int winy, int winw, int winh) {  
 
 #define SQR(x) ((x)*(x))
 	//#define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -35,10 +35,12 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 #define ULIM(x,y,z) ((y) < (z) ? LIM(x,y,z) : LIM(x,z,y))
 	//#define CLIP(x) LIM(x,0,65535)
 
-	int width=winw, height=winh;
+//	int width=winw, height=winh;
+	int winx=0,winy=0,winw=width,winh=height;
 	
 	
-	const float clip_pt = 1/ri->defgain; 
+	const float clip_pt = MIN(MIN(pre_mul[0],pre_mul[1]),pre_mul[2]);
+
 
 #define TS 512	 // Tile size; the image is processed in square tiles to lower memory requirements and facilitate multi-threading
 	
@@ -209,11 +211,12 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 	//t1 = clock();
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+#if 0
 	if (plistener) {
 		plistener->setProgressStr ("AMaZE Demosaicing...");
 		plistener->setProgress (0.0);
 	}
+#endif
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -326,9 +329,9 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 					col = cc+left;
 					c = FC(rr,cc);
 					indx1=rr*TS+cc;
-					rgb[indx1][c] = (rawData[row][col])/65535.0f;
-					//indx=row*width+col;
-					//rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
+					//rgb[indx1][c] = (rawData[row][col])/65535.0f;
+					indx=row*width+col;
+					rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
 
 					cfa[indx1] = rgb[indx1][c];
 				}
@@ -346,8 +349,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=0; rr<16; rr++) 
 					for (cc=ccmin; cc<ccmax; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][left+cc])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][left+cc])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+cc] = rgb[(rrmax+rr)*TS+cc][c];
 					}
 			}
@@ -363,8 +366,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=rrmin; rr<rrmax; rr++)
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(winx+width-cc-2)])/65535.0f;
-						//rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(winx+width-cc-2)])/65535.0f;
+						rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[rr*TS+ccmax+cc] = rgb[rr*TS+ccmax+cc][c];
 					}
 			}
@@ -374,8 +377,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+cc][c] = (rawData[winy+32-rr][winx+32-cc])/65535.0f;
-						//rgb[(rr)*TS+cc][c] = (rgb[(32-rr)*TS+(32-cc)][c]);//for dcraw implementation
+						//rgb[(rr)*TS+cc][c] = (rawData[winy+32-rr][winx+32-cc])/65535.0f;
+						rgb[(rr)*TS+cc][c] = (rgb[(32-rr)*TS+(32-cc)][c]);//for dcraw implementation
 						cfa[(rr)*TS+cc] = rgb[(rr)*TS+cc][c];
 					}
 			}
@@ -383,8 +386,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(winy+height-rr-2)][(winx+width-cc-2)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(winy+height-rr-2)][(winx+width-cc-2)])/65535.0f;
+						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+ccmax+cc] = rgb[(rrmax+rr)*TS+ccmax+cc][c];
 					}
 			}
@@ -392,8 +395,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						rgb[(rr)*TS+ccmax+cc][c] = (rawData[(winy+32-rr)][(winx+width-cc-2)])/65535.0f;
-						//rgb[(rr)*TS+ccmax+cc][c] = (image[(32-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rr)*TS+ccmax+cc][c] = (rawData[(winy+32-rr)][(winx+width-cc-2)])/65535.0f;
+						rgb[(rr)*TS+ccmax+cc][c] = (image[(32-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[(rr)*TS+ccmax+cc] = rgb[(rr)*TS+ccmax+cc][c];
 					}
 			}
@@ -401,8 +404,8 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][(winx+32-cc)])/65535.0f;
-						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(32-cc)][c])/65535.0f;//for dcraw implementation
+						//rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][(winx+32-cc)])/65535.0f;
+						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(32-cc)][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+cc] = rgb[(rrmax+rr)*TS+cc][c];
 					}
 			}
@@ -979,15 +982,18 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 					col = cc + left;
 
 					indx=rr*TS+cc;
+					indx1=row*width+col;
 
-					red[row][col] = CLIP((int)(65535.0f*rgb[indx][0] + 0.5f));
-					green[row][col] = CLIP((int)(65535.0f*rgb[indx][1] + 0.5f));
-					blue[row][col] = CLIP((int)(65535.0f*rgb[indx][2] + 0.5f));
+
+					//red[row][col] = CLIP((int)(65535.0f*rgb[indx][0] + 0.5f));
+					//green[row][col] = CLIP((int)(65535.0f*rgb[indx][1] + 0.5f));
+					//blue[row][col] = CLIP((int)(65535.0f*rgb[indx][2] + 0.5f));
 
 					//for dcraw implementation
-					//for (c=0; c<3; c++){
-					//	image[indx][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
-					//} 
+					for (c=0; c<3; c++){
+						//image[indx][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
+						image[indx1][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
+					} 
 
 
 				}
@@ -1000,7 +1006,7 @@ void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {
 			{
 				progress=1.0;
 			}
-			if(plistener) plistener->setProgress(progress);
+			//if(plistener) plistener->setProgress(progress);
 		}
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
