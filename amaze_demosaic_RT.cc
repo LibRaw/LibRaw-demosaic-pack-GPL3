@@ -1,4 +1,3 @@
-// ported from rawtherapee code wyattolson-rawtherapee-staging revision 6ef21b6f6e
 ////////////////////////////////////////////////////////////////
 //
 //			AMaZE demosaic algorithm
@@ -25,9 +24,9 @@
 //
 ////////////////////////////////////////////////////////////////
 
+using namespace rtengine;
 
-
-void CLASS amaze_demosaic_RT() {  
+void RawImageSource::amaze_demosaic_RT(int winx, int winy, int winw, int winh) {  
 
 #define SQR(x) ((x)*(x))
 	//#define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -36,23 +35,18 @@ void CLASS amaze_demosaic_RT() {
 #define ULIM(x,y,z) ((y) < (z) ? LIM(x,y,z) : LIM(x,z,y))
 	//#define CLIP(x) LIM(x,0,65535)
 
-// 	//allocate outpute arrays
-// 	int width=W, height=H;
-// 	red = new unsigned short*[H];
-// 	for (int i=0; i<H; i++) {
-// 		red[i] = new unsigned short[W];
-// 	}
-// 	green = new unsigned short*[H];
-// 	for (int i=0; i<H; i++) {
-// 		green[i] = new unsigned short[W];
-// 	}	
-// 	blue = new unsigned short*[H];
-// 	for (int i=0; i<H; i++) {
-// 		blue[i] = new unsigned short[W];
-// 	}
+	int width=winw, height=winh;
+	
+	
+	const float clip_pt = 1/ri->defgain; 
 
 #define TS 512	 // Tile size; the image is processed in square tiles to lower memory requirements and facilitate multi-threading
 	
+	// local variables
+
+
+	//offset of R pixel within a Bayer quartet
+	int ex, ey;
 
 	//shifts of pointer value to access pixels in vertical and diagonal directions
 	static const int v1=TS, v2=2*TS, v3=3*TS, p1=-TS+1, p2=-2*TS+2, p3=-3*TS+3, m1=TS+1, m2=2*TS+2, m3=3*TS+3;
@@ -83,23 +77,13 @@ void CLASS amaze_demosaic_RT() {
 	static const float gausseven[2] = {0.13719494435797422f, 0.05640252782101291f};
 	//guassian on quincunx grid
 	static const float gquinc[4] = {0.169917f, 0.108947f, 0.069855f, 0.0287182f};
-	//determine GRBG coset; (ey,ex) is the offset of the R subarray
-	int ex, ey;
-	if (FC(0,0)==1) {//first pixel is G
-		if (FC(0,1)==0) {ey=0; ex=1;} else {ey=1; ex=0;}
-	} else {//first pixel is R or B
-		if (FC(0,0)==0) {ey=0; ex=0;} else {ey=1; ex=1;}
-	}
 
+	volatile double progress = 0.0;
+	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #pragma omp parallel
 {
-	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	// local variables
-
 	//position of top/left corner of the tile
 	int top, left;
-	//offset of R pixel within a Bayer quartet
-
 	// beginning of storage block for tile
 	char  *buffer;
 	// rgb values
@@ -226,25 +210,31 @@ void CLASS amaze_demosaic_RT() {
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-// 	if (plistener) {
-// 		plistener->setProgressStr ("AMaZE Demosaicing...");
-// 		plistener->setProgress (0.0);
-// 	}
+	if (plistener) {
+		plistener->setProgressStr ("AMaZE Demosaicing...");
+		plistener->setProgress (0.0);
+	}
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+	//determine GRBG coset; (ey,ex) is the offset of the R subarray
+	if (FC(0,0)==1) {//first pixel is G
+		if (FC(0,1)==0) {ey=0; ex=1;} else {ey=1; ex=0;}
+	} else {//first pixel is R or B
+		if (FC(0,0)==0) {ey=0; ex=0;} else {ey=1; ex=1;}
+	}
 
 	// Main algorithm: Tile loop
-	//#pragma omp parallel for shared(ri->data,height,width,red,green,blue) private(top,left) schedule(dynamic)
+	//#pragma omp parallel for shared(rawData,height,width,red,green,blue) private(top,left) schedule(dynamic)
 	//code is openmp ready; just have to pull local tile variable declarations inside the tile loop
-#pragma omp for
-	for (top=-16; top < height; top += TS-32)
-		for (left=-16; left < width; left += TS-32) {
+#pragma omp for schedule(dynamic) nowait
+	for (top=winy-16; top < winy+height; top += TS-32)
+		for (left=winx-16; left < winx+width; left += TS-32) {
 			//location of tile bottom edge
-			int bottom = MIN( top+TS,height+16);
+			int bottom = MIN( top+TS,winy+height+16);
 			//location of tile right edge
-			int right  = MIN(left+TS, width+16);
+			int right  = MIN(left+TS, winx+width+16);
 			//tile width  (=TS except for right edge of image)
 			int rr1 = bottom - top;
 			//tile height (=TS except for bottom edge of image)
@@ -316,81 +306,7 @@ void CLASS amaze_demosaic_RT() {
 			float rbvarp, rbvarm;
 
 
-			// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-/*			
-			char		*buffer;			// TS*TS*168
-			float         (*rgb)[3];		// TS*TS*12
-			float         (*delh);			// TS*TS*4
-			float         (*delv);			// TS*TS*4
-			float         (*delhsq);		// TS*TS*4
-			float         (*delvsq);		// TS*TS*4
-			float         (*dirwts)[2];		// TS*TS*8
-			float         (*vcd);			// TS*TS*4
-			float         (*hcd);			// TS*TS*4
-			float         (*vcdalt);		// TS*TS*4
-			float         (*hcdalt);		// TS*TS*4
-			float         (*vcdsq);			// TS*TS*4
-			float         (*hcdsq);			// TS*TS*4
-			float         (*cddiffsq);		// TS*TS*4
-			float         (*hvwt);			// TS*TS*4
-			float         (*Dgrb)[2];		// TS*TS*8
-			float         (*delp);			// TS*TS*4
-			float         (*delm);			// TS*TS*4
-			float         (*rbint);			// TS*TS*4
-			float         (*Dgrbh2);		// TS*TS*4
-			float         (*Dgrbv2);		// TS*TS*4
-			float         (*dgintv);		// TS*TS*4
-			float         (*dginth);		// TS*TS*4
-			float         (*Dgrbp1);		// TS*TS*4
-			float         (*Dgrbm1);		// TS*TS*4
-			float         (*Dgrbpsq1);		// TS*TS*4
-			float         (*Dgrbmsq1);		// TS*TS*4
-			float         (*cfa);			// TS*TS*4
-			float         (*pmwt);			// TS*TS*4
-			float         (*rbp);			// TS*TS*4
-			float         (*rbm);			// TS*TS*4
-
-			int			(*nyquist);			// TS*TS*4
-
-
-			// assign working space
-			buffer = (char *) malloc(35*sizeof(float)*TS*TS);
-			//merror(buffer,"amaze_interpolate()");
-			memset(buffer,0,35*sizeof(float)*TS*TS);
-			// rgb array
-			rgb         = (float (*)[3])		buffer; //pointers to array
-			delh		= (float (*))			(buffer +  3*sizeof(float)*TS*TS);
-			delv		= (float (*))			(buffer +  4*sizeof(float)*TS*TS);
-			delhsq		= (float (*))			(buffer +  5*sizeof(float)*TS*TS);
-			delvsq		= (float (*))			(buffer +  6*sizeof(float)*TS*TS);
-			dirwts		= (float (*)[2])		(buffer +  7*sizeof(float)*TS*TS);
-			vcd			= (float (*))			(buffer +  9*sizeof(float)*TS*TS);
-			hcd			= (float (*))			(buffer +  10*sizeof(float)*TS*TS);
-			vcdalt		= (float (*))			(buffer +  11*sizeof(float)*TS*TS);
-			hcdalt		= (float (*))			(buffer +  12*sizeof(float)*TS*TS);
-			vcdsq		= (float (*))			(buffer +  13*sizeof(float)*TS*TS);
-			hcdsq		= (float (*))			(buffer +  14*sizeof(float)*TS*TS);
-			cddiffsq	= (float (*))			(buffer +  15*sizeof(float)*TS*TS);
-			hvwt		= (float (*))			(buffer +  16*sizeof(float)*TS*TS);
-			Dgrb		= (float (*)[2])		(buffer +  17*sizeof(float)*TS*TS);
-			delp		= (float (*))			(buffer +  19*sizeof(float)*TS*TS);
-			delm		= (float (*))			(buffer +  20*sizeof(float)*TS*TS);
-			rbint		= (float (*))			(buffer +  21*sizeof(float)*TS*TS);
-			Dgrbh2		= (float (*))			(buffer +  22*sizeof(float)*TS*TS);
-			Dgrbv2		= (float (*))			(buffer +  23*sizeof(float)*TS*TS);	
-			dgintv		= (float (*))			(buffer +  24*sizeof(float)*TS*TS);
-			dginth		= (float (*))			(buffer +  25*sizeof(float)*TS*TS);
-			Dgrbp1		= (float (*))			(buffer +  26*sizeof(float)*TS*TS);
-			Dgrbm1		= (float (*))			(buffer +  27*sizeof(float)*TS*TS);
-			Dgrbpsq1	= (float (*))			(buffer +  28*sizeof(float)*TS*TS);
-			Dgrbmsq1	= (float (*))			(buffer +  29*sizeof(float)*TS*TS);
-			cfa			= (float (*))			(buffer +  30*sizeof(float)*TS*TS);
-			pmwt		= (float (*))			(buffer +  31*sizeof(float)*TS*TS);
-			rbp			= (float (*))			(buffer +  32*sizeof(float)*TS*TS);
-			rbm			= (float (*))			(buffer +  33*sizeof(float)*TS*TS);
-
-			nyquist		= (int (*))				(buffer +  34*sizeof(float)*TS*TS);
-*/			
+		
 			// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -400,19 +316,19 @@ void CLASS amaze_demosaic_RT() {
 			// a 16 pixel border is added to each side of the image
 
 			// bookkeeping for borders
-			if (top<0) {rrmin=16;} else {rrmin=0;}
-			if (left<0) {ccmin=16;} else {ccmin=0;}
-			if (bottom>height) {rrmax=height-top;} else {rrmax=rr1;}
-			if (right>width) {ccmax=width-left;} else {ccmax=cc1;}
+			if (top<winy) {rrmin=16;} else {rrmin=0;}
+			if (left<winx) {ccmin=16;} else {ccmin=0;}
+			if (bottom>(winy+height)) {rrmax=winy+height-top;} else {rrmax=rr1;}
+			if (right>(winx+width)) {ccmax=winx+width-left;} else {ccmax=cc1;}
 			
 			for (rr=rrmin; rr < rrmax; rr++)
 				for (row=rr+top, cc=ccmin; cc < ccmax; cc++) {
 					col = cc+left;
 					c = FC(rr,cc);
-					indx=row*width+col;
 					indx1=rr*TS+cc;
-					//rgb[indx1][c] = (ri->data[row][col])/65535.0f;
-					rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
+					rgb[indx1][c] = (rawData[row][col])/65535.0f;
+					//indx=row*width+col;
+					//rgb[indx1][c] = image[indx][c]/65535.0f;//for dcraw implementation
 
 					cfa[indx1] = rgb[indx1][c];
 				}
@@ -430,8 +346,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=0; rr<16; rr++) 
 					for (cc=ccmin; cc<ccmax; cc++) {
 						c=FC(rr,cc);
-						//rgb[(rrmax+rr)*TS+cc][c] = (ri->data[(height-rr-2)][left+cc])/65535.0f;
-						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
+						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][left+cc])/65535.0f;
+						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+left+cc][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+cc] = rgb[(rrmax+rr)*TS+cc][c];
 					}
 			}
@@ -447,8 +363,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=rrmin; rr<rrmax; rr++)
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						//rgb[rr*TS+ccmax+cc][c] = (ri->data[(top+rr)][(width-cc-2)])/65535.0f;
-						rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						rgb[rr*TS+ccmax+cc][c] = (rawData[(top+rr)][(winx+width-cc-2)])/65535.0f;
+						//rgb[rr*TS+ccmax+cc][c] = (image[(top+rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[rr*TS+ccmax+cc] = rgb[rr*TS+ccmax+cc][c];
 					}
 			}
@@ -458,9 +374,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						//rgb[(rr)*TS+cc][c] = (ri->data[32-rr][32-cc])/65535.0f;
+						rgb[(rr)*TS+cc][c] = (rawData[winy+32-rr][winx+32-cc])/65535.0f;
 						//rgb[(rr)*TS+cc][c] = (rgb[(32-rr)*TS+(32-cc)][c]);//for dcraw implementation
-						rgb[(rr)*TS+cc][c] = (image[(32-rr)*width+32-cc][c])/65535.0f;
 						cfa[(rr)*TS+cc] = rgb[(rr)*TS+cc][c];
 					}
 			}
@@ -468,8 +383,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (ri->data[(height-rr-2)][(width-cc-2)])/65535.0f;
-						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						rgb[(rrmax+rr)*TS+ccmax+cc][c] = (rawData[(winy+height-rr-2)][(winx+width-cc-2)])/65535.0f;
+						//rgb[(rrmax+rr)*TS+ccmax+cc][c] = (image[(height-rr-2)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+ccmax+cc] = rgb[(rrmax+rr)*TS+ccmax+cc][c];
 					}
 			}
@@ -477,8 +392,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						//rgb[(rr)*TS+ccmax+cc][c] = (ri->data[(32-rr)][(width-cc-2)])/65535.0f;
-						rgb[(rr)*TS+ccmax+cc][c] = (image[(32-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
+						rgb[(rr)*TS+ccmax+cc][c] = (rawData[(winy+32-rr)][(winx+width-cc-2)])/65535.0f;
+						//rgb[(rr)*TS+ccmax+cc][c] = (image[(32-rr)*width+(width-cc-2)][c])/65535.0f;//for dcraw implementation
 						cfa[(rr)*TS+ccmax+cc] = rgb[(rr)*TS+ccmax+cc][c];
 					}
 			}
@@ -486,8 +401,8 @@ void CLASS amaze_demosaic_RT() {
 				for (rr=0; rr<16; rr++) 
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
-						//rgb[(rrmax+rr)*TS+cc][c] = (ri->data[(height-rr-2)][(32-cc)])/65535.0f;
-						rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(32-cc)][c])/65535.0f;//for dcraw implementation
+						rgb[(rrmax+rr)*TS+cc][c] = (rawData[(winy+height-rr-2)][(winx+32-cc)])/65535.0f;
+						//rgb[(rrmax+rr)*TS+cc][c] = (image[(height-rr-2)*width+(32-cc)][c])/65535.0f;//for dcraw implementation
 						cfa[(rrmax+rr)*TS+cc] = rgb[(rrmax+rr)*TS+cc][c];
 					}
 			}
@@ -557,7 +472,7 @@ void CLASS amaze_demosaic_RT() {
 					if (fabs(1-crd)<arthresh) {gdar=cfa[indx]*crd;} else {gdar=gdha;}
 					if (fabs(1-crl)<arthresh) {glar=cfa[indx]*crl;} else {glar=glha;}
 					if (fabs(1-crr)<arthresh) {grar=cfa[indx]*crr;} else {grar=grha;}
-
+					
 					hwt = dirwts[indx-1][1]/(dirwts[indx-1][1]+dirwts[indx+1][1]);
 					vwt = dirwts[indx-v1][0]/(dirwts[indx+v1][0]+dirwts[indx-v1][0]);
 
@@ -571,6 +486,12 @@ void CLASS amaze_demosaic_RT() {
 					hcd[indx] = sgn*(Ginthar-cfa[indx]);
 					vcdalt[indx] = sgn*(Gintvha-cfa[indx]);
 					hcdalt[indx] = sgn*(Ginthha-cfa[indx]);
+					
+					if (cfa[indx] > 0.8*clip_pt || Gintvha > 0.8*clip_pt || Ginthha > 0.8*clip_pt) {
+						//use HA if highlights are (nearly) clipped
+						guar=guha; gdar=gdha; glar=glha; grar=grha;
+						vcd[indx]=vcdalt[indx]; hcd[indx]=hcdalt[indx];
+					}
 
 					//differences of interpolations in opposite directions
 					dgintv[indx]=MIN(SQR(guha-gdha),SQR(guar-gdar));
@@ -621,8 +542,8 @@ void CLASS amaze_demosaic_RT() {
 							}
 						}
 						
-						if (Ginth > 1) hcd[indx]=-ULIM(Ginth,cfa[indx-1],cfa[indx+1])+cfa[indx];//for RT implementation
-						if (Gintv > 1) vcd[indx]=-ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])+cfa[indx];
+						if (Ginth > clip_pt) hcd[indx]=-ULIM(Ginth,cfa[indx-1],cfa[indx+1])+cfa[indx];//for RT implementation
+						if (Gintv > clip_pt) vcd[indx]=-ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])+cfa[indx];
 						//if (Ginth > pre_mul[c]) hcd[indx]=-ULIM(Ginth,cfa[indx-1],cfa[indx+1])+cfa[indx];//for dcraw implementation
 						//if (Gintv > pre_mul[c]) vcd[indx]=-ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])+cfa[indx];
 
@@ -648,8 +569,8 @@ void CLASS amaze_demosaic_RT() {
 							}
 						}
 
-						if (Ginth > 1) hcd[indx]=ULIM(Ginth,cfa[indx-1],cfa[indx+1])-cfa[indx];//for RT implementation
-						if (Gintv > 1) vcd[indx]=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])-cfa[indx];
+						if (Ginth > clip_pt) hcd[indx]=ULIM(Ginth,cfa[indx-1],cfa[indx+1])-cfa[indx];//for RT implementation
+						if (Gintv > clip_pt) vcd[indx]=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])-cfa[indx];
 						//if (Ginth > pre_mul[c]) hcd[indx]=ULIM(Ginth,cfa[indx-1],cfa[indx+1])-cfa[indx];//for dcraw implementation
 						//if (Gintv > pre_mul[c]) vcd[indx]=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])-cfa[indx];
 					}
@@ -859,15 +780,15 @@ void CLASS amaze_demosaic_RT() {
 					rbvarp = epssq + (gausseven[0]*(Dgrbpsq1[indx-v1]+Dgrbpsq1[indx-1]+Dgrbpsq1[indx+1]+Dgrbpsq1[indx+v1]) + \
 									gausseven[1]*(Dgrbpsq1[indx-v2-1]+Dgrbpsq1[indx-v2+1]+Dgrbpsq1[indx-2-v1]+Dgrbpsq1[indx+2-v1]+ \
 												  Dgrbpsq1[indx-2+v1]+Dgrbpsq1[indx+2+v1]+Dgrbpsq1[indx+v2-1]+Dgrbpsq1[indx+v2+1]));
-					//rbvarp -=  SQR( (gausseven[0]*(Dgrbp1[indx-v1]+Dgrbp1[indx-1]+Dgrbp1[indx+1]+Dgrbp1[indx+v1]) + \
+					/*rbvarp -=  SQR( (gausseven[0]*(Dgrbp1[indx-v1]+Dgrbp1[indx-1]+Dgrbp1[indx+1]+Dgrbp1[indx+v1]) + \
 					gausseven[1]*(Dgrbp1[indx-v2-1]+Dgrbp1[indx-v2+1]+Dgrbp1[indx-2-v1]+Dgrbp1[indx+2-v1]+ \
-					Dgrbp1[indx-2+v1]+Dgrbp1[indx+2+v1]+Dgrbp1[indx+v2-1]+Dgrbp1[indx+v2+1])));
+					Dgrbp1[indx-2+v1]+Dgrbp1[indx+2+v1]+Dgrbp1[indx+v2-1]+Dgrbp1[indx+v2+1])));*/
 					rbvarm = epssq + (gausseven[0]*(Dgrbmsq1[indx-v1]+Dgrbmsq1[indx-1]+Dgrbmsq1[indx+1]+Dgrbmsq1[indx+v1]) + \
 									gausseven[1]*(Dgrbmsq1[indx-v2-1]+Dgrbmsq1[indx-v2+1]+Dgrbmsq1[indx-2-v1]+Dgrbmsq1[indx+2-v1]+ \
 												  Dgrbmsq1[indx-2+v1]+Dgrbmsq1[indx+2+v1]+Dgrbmsq1[indx+v2-1]+Dgrbmsq1[indx+v2+1]));
-					//rbvarm -=  SQR( (gausseven[0]*(Dgrbm1[indx-v1]+Dgrbm1[indx-1]+Dgrbm1[indx+1]+Dgrbm1[indx+v1]) + \
+					/*rbvarm -=  SQR( (gausseven[0]*(Dgrbm1[indx-v1]+Dgrbm1[indx-1]+Dgrbm1[indx+1]+Dgrbm1[indx+v1]) + \
 					gausseven[1]*(Dgrbm1[indx-v2-1]+Dgrbm1[indx-v2+1]+Dgrbm1[indx-2-v1]+Dgrbm1[indx+2-v1]+ \
-					Dgrbm1[indx-2+v1]+Dgrbm1[indx+2+v1]+Dgrbm1[indx+v2-1]+Dgrbm1[indx+v2+1])));
+					Dgrbm1[indx-2+v1]+Dgrbm1[indx+2+v1]+Dgrbm1[indx+v2-1]+Dgrbm1[indx+v2+1])));*/
 
 
 
@@ -919,9 +840,9 @@ void CLASS amaze_demosaic_RT() {
 						}
 					}
 
-					if (rbp[indx] > 1) rbp[indx]=ULIM(rbp[indx],cfa[indx-p1],cfa[indx+p1]);//for RT implementation
-					if (rbm[indx] > 1) rbm[indx]=ULIM(rbm[indx],cfa[indx-m1],cfa[indx+m1]);
-					//c=FC(rr,cc);//for dcraw implementation
+					if (rbp[indx] > clip_pt) rbp[indx]=ULIM(rbp[indx],cfa[indx-p1],cfa[indx+p1]);//for RT implementation
+					if (rbm[indx] > clip_pt) rbm[indx]=ULIM(rbm[indx],cfa[indx-m1],cfa[indx+m1]);
+					//c=2-FC(rr,cc);//for dcraw implementation
 					//if (rbp[indx] > pre_mul[c]) rbp[indx]=ULIM(rbp[indx],cfa[indx-p1],cfa[indx+p1]);
 					//if (rbm[indx] > pre_mul[c]) rbm[indx]=ULIM(rbm[indx],cfa[indx-m1],cfa[indx+m1]);
 					// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -994,8 +915,8 @@ void CLASS amaze_demosaic_RT() {
 						}
 					}
 
-					if (Ginth > 1) Ginth=ULIM(Ginth,cfa[indx-1],cfa[indx+1]);//for RT implementation
-					if (Gintv > 1) Gintv=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1]);
+					if (Ginth > clip_pt) Ginth=ULIM(Ginth,cfa[indx-1],cfa[indx+1]);//for RT implementation
+					if (Gintv > clip_pt) Gintv=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1]);
 					//c=FC(rr,cc);//for dcraw implementation
 					//if (Ginth > pre_mul[c]) Ginth=ULIM(Ginth,cfa[indx-1],cfa[indx+1]);
 					//if (Gintv > pre_mul[c]) Gintv=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1]);
@@ -1058,17 +979,15 @@ void CLASS amaze_demosaic_RT() {
 					col = cc + left;
 
 					indx=rr*TS+cc;
-					indx1=row*width+col;
 
-					//red[row][col] = CLIP((int)(65535.0f*rgb[indx][0] + 0.5f));
-					//green[row][col] = CLIP((int)(65535.0f*rgb[indx][1] + 0.5f));
-					//blue[row][col] = CLIP((int)(65535.0f*rgb[indx][2] + 0.5f));
+					red[row][col] = CLIP((int)(65535.0f*rgb[indx][0] + 0.5f));
+					green[row][col] = CLIP((int)(65535.0f*rgb[indx][1] + 0.5f));
+					blue[row][col] = CLIP((int)(65535.0f*rgb[indx][2] + 0.5f));
 
 					//for dcraw implementation
-					for (c=0; c<3; c++){
+					//for (c=0; c<3; c++){
 					//	image[indx][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
-						image[indx1][c] = CLIP((int)(65535.0f*rgb[indx][c] + 0.5f)); 
-					} 
+					//} 
 
 
 				}
@@ -1076,8 +995,12 @@ void CLASS amaze_demosaic_RT() {
 
 			// clean up
 			//free(buffer);
-
-			//if(plistener) plistener->setProgress(fabs((float)top/height));
+			progress+=(double)((TS-32)*(TS-32))/(height*width);
+			if (progress>1.0)
+			{
+				progress=1.0;
+			}
+			if(plistener) plistener->setProgress(progress);
 		}
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
