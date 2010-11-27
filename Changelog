@@ -1,3 +1,7 @@
+2010-11-27 Alex Tutubalin <lexa@lexa.ru>
+	   * malloc changed to calloc to make valgrind happy with
+	     uninitialized values
+
 2010-11-20 Alex Tutubalin <lexa@lexa.ru>
 	   * Imported actual AMaZE implementation from RawTherapee
 	   * OpenMP with LIBRAW_USE_OPENMP

@@ -156,7 +156,7 @@ void CLASS amaze_demosaic_RT() {
 
 
 	// assign working space
-	buffer = (char *) malloc((34*sizeof(float)+sizeof(int))*TS*TS);
+	buffer = (char *) calloc((34*sizeof(float)+sizeof(int))*TS*TS,1);
 	//merror(buffer,"amaze_interpolate()");
 	//memset(buffer,0,(34*sizeof(float)+sizeof(int))*TS*TS);
 	// rgb array
