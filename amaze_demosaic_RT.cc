@@ -24,9 +24,11 @@
 //
 ////////////////////////////////////////////////////////////////
 
+	
+#define TS 512	 // Tile size; the image is processed in square tiles to lower memory requirements and facilitate multi-threading
+// #define CLASS
 
-void CLASS amaze_demosaic_RT() {  
-//void CLASS amaze_demosaic_RT(int winx, int winy, int winw, int winh) {  
+//void RawImageSource::amaze_demosaic_RT() {  
 
 #define SQR(x) ((x)*(x))
 	//#define MIN(a,b) ((a) < (b) ? (a) : (b))
@@ -34,18 +36,20 @@ void CLASS amaze_demosaic_RT() {
 #define LIM(x,min,max) MAX(min,MIN(x,max))
 #define ULIM(x,y,z) ((y) < (z) ? LIM(x,y,z) : LIM(x,z,y))
 	//#define CLIP(x) LIM(x,0,65535)
+#define HCLIP(x) MIN(clip_pt,x)  //modifEmil
 
-//	int width=winw, height=winh;
-	int winx=0,winy=0,winw=width,winh=height;
 	
 	
-	const float clip_pt = MIN(MIN(pre_mul[0],pre_mul[1]),pre_mul[2]);
-
-
-#define TS 512	 // Tile size; the image is processed in square tiles to lower memory requirements and facilitate multi-threading
 	
 	// local variables
+void CLASS amaze_demosaic_RT() {  
+        double dt;
+         clock_t t1, t2;
 
+	
+    float clip_pt =MIN(MIN(pre_mul[0],pre_mul[1]),pre_mul[2]);
+
+	int winx=0, winy=0,winw=width, winh=height;
 
 	//offset of R pixel within a Bayer quartet
 	int ex, ey;
@@ -81,10 +85,17 @@ void CLASS amaze_demosaic_RT() {
 	static const float gquinc[4] = {0.169917f, 0.108947f, 0.069855f, 0.0287182f};
 
 	volatile double progress = 0.0;
+#ifdef DCRAW_VERBOSE
+			        if (verbose) printf ("AMaZE interpolation v20b OMP[E.Martinec]\n");
+#endif
+	 t1 = clock();
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+//#pragma omp parallel
 #if defined (LIBRAW_USE_OPENMP)
 #pragma omp parallel
 #endif
+
+
 {
 	//position of top/left corner of the tile
 	int top, left;
@@ -156,7 +167,7 @@ void CLASS amaze_demosaic_RT() {
 
 
 	// assign working space
-	buffer = (char *) calloc((34*sizeof(float)+sizeof(int))*TS*TS,1);
+	buffer = (char *) malloc((34*sizeof(float)+sizeof(int))*TS*TS);
 	//merror(buffer,"amaze_interpolate()");
 	//memset(buffer,0,(34*sizeof(float)+sizeof(int))*TS*TS);
 	// rgb array
@@ -213,12 +224,11 @@ void CLASS amaze_demosaic_RT() {
 	//t1 = clock();
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-#if 0
-	if (plistener) {
-		plistener->setProgressStr ("AMaZE Demosaicing...");
-		plistener->setProgress (0.0);
-	}
-#endif
+
+	//if (plistener) {
+	//	plistener->setProgressStr ("AMaZE Demosaicing...");
+	//	plistener->setProgress (0.0);
+//	}
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -229,11 +239,14 @@ void CLASS amaze_demosaic_RT() {
 	} else {//first pixel is R or B
 		if (FC(0,0)==0) {ey=0; ex=0;} else {ey=1; ex=1;}
 	}
-
+	/*
+	int omp_get_nested(void);
+ omp_set_nested(1);
+  omp_set_num_threads(4);
+     omp_set_dynamic(9);
+*/
 #if defined (LIBRAW_USE_OPENMP)
-	// Main algorithm: Tile loop
-	//#pragma omp parallel for shared(rawData,height,width,red,green,blue) private(top,left) schedule(dynamic)
-	//code is openmp ready; just have to pull local tile variable declarations inside the tile loop
+	
 #pragma omp for schedule(dynamic) nowait
 #endif
 	for (top=winy-16; top < winy+height; top += TS-32)
@@ -382,8 +395,7 @@ void CLASS amaze_demosaic_RT() {
 					for (cc=0; cc<16; cc++) {
 						c=FC(rr,cc);
 						//rgb[(rr)*TS+cc][c] = (rawData[winy+32-rr][winx+32-cc])/65535.0f;
-						rgb[(rr)*TS+cc][c] = (image[(winy+32-rr)*width+(winx+32-cc)][c]);//for dcraw implementation
-						//rgb[(rr)*TS+cc][c] = (rgb[(32-rr)*TS+(32-cc)][c]);//for dcraw implementation
+						rgb[(rr)*TS+cc][c] = (rgb[(32-rr)*TS+(32-cc)][c]);//for dcraw implementation
 						cfa[(rr)*TS+cc] = rgb[(rr)*TS+cc][c];
 					}
 			}
@@ -471,10 +483,11 @@ void CLASS amaze_demosaic_RT() {
 					crl = cfa[indx-1]*(dirwts[indx-2][1]+dirwts[indx][1])/(dirwts[indx-2][1]*(eps+cfa[indx])+dirwts[indx][1]*(eps+cfa[indx-2]));
 					crr = cfa[indx+1]*(dirwts[indx+2][1]+dirwts[indx][1])/(dirwts[indx+2][1]*(eps+cfa[indx])+dirwts[indx][1]*(eps+cfa[indx+2]));
 
-					guha=cfa[indx-v1]+0.5*(cfa[indx]-cfa[indx-v2]);
-					gdha=cfa[indx+v1]+0.5*(cfa[indx]-cfa[indx+v2]);
-					glha=cfa[indx-1]+0.5*(cfa[indx]-cfa[indx-2]);
-					grha=cfa[indx+1]+0.5*(cfa[indx]-cfa[indx+2]);
+					//guha= HCLIP(cfa[indx-v1]); /*0.5*(cfa[indx]-cfa[indx-v2]);*/
+					guha=MIN(clip_pt,cfa[indx-v1])+0.5*(cfa[indx]-cfa[indx-v2]);
+					gdha=MIN(clip_pt,cfa[indx+v1])+0.5*(cfa[indx]-cfa[indx+v2]);
+					glha=MIN(clip_pt,cfa[indx-1])+0.5*(cfa[indx]-cfa[indx-2]);
+					grha=MIN(clip_pt,cfa[indx+1])+0.5*(cfa[indx]-cfa[indx+2]);
 
 					if (fabs(1-cru)<arthresh) {guar=cfa[indx]*cru;} else {guar=guha;}
 					if (fabs(1-crd)<arthresh) {gdar=cfa[indx]*crd;} else {gdar=gdha;}
@@ -527,9 +540,9 @@ void CLASS amaze_demosaic_RT() {
 					//choose the smallest variance; this yields a smoother interpolation
 					if (hcdaltvar<hcdvar) hcd[indx]=hcdalt[indx];
 					if (vcdaltvar<vcdvar) vcd[indx]=vcdalt[indx];
-
+					
 					//bound the interpolation in regions of high saturation
-					if (c&1) {
+					if (c&1) {//G site
 						Ginth = -hcd[indx]+cfa[indx];//R or B
 						Gintv = -vcd[indx]+cfa[indx];//B or R
 
@@ -555,7 +568,7 @@ void CLASS amaze_demosaic_RT() {
 						//if (Ginth > pre_mul[c]) hcd[indx]=-ULIM(Ginth,cfa[indx-1],cfa[indx+1])+cfa[indx];//for dcraw implementation
 						//if (Gintv > pre_mul[c]) vcd[indx]=-ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])+cfa[indx];
 
-					} else {
+					} else {//R or B site
 
 						Ginth = hcd[indx]+cfa[indx];//interpolated G
 						Gintv = vcd[indx]+cfa[indx];
@@ -582,7 +595,8 @@ void CLASS amaze_demosaic_RT() {
 						//if (Ginth > pre_mul[c]) hcd[indx]=ULIM(Ginth,cfa[indx-1],cfa[indx+1])-cfa[indx];//for dcraw implementation
 						//if (Gintv > pre_mul[c]) vcd[indx]=ULIM(Gintv,cfa[indx-v1],cfa[indx+v1])-cfa[indx];
 					}
-
+					
+					
 					vcdsq[indx] = SQR(vcd[indx]);
 					hcdsq[indx] = SQR(hcd[indx]);
 					cddiffsq[indx] = SQR(vcd[indx]-hcd[indx]);
@@ -873,7 +887,7 @@ void CLASS amaze_demosaic_RT() {
 
 			for (rr=12; rr<rr1-12; rr++)
 				for (cc=12+(FC(rr,2)&1),indx=rr*TS+cc; cc<cc1-12; cc+=2,indx+=2) {	
-
+						
 					if (fabs(0.5-pmwt[indx])<fabs(0.5-hvwt[indx]) ) continue;
 
 					//now interpolate G vertically/horizontally using R+B values
@@ -985,10 +999,9 @@ void CLASS amaze_demosaic_RT() {
 			for (rr=16; rr < rr1-16; rr++)
 				for (row=rr+top, cc=16; cc < cc1-16; cc++) {
 					col = cc + left;
+					indx = (row)*width + col;
 
-					indx=rr*TS+cc;
-					indx1=row*width+col;
-
+					//indx=rr*TS+cc;
 
 					//red[row][col] = CLIP((int)(65535.0f*rgb[indx][0] + 0.5f));
 					//green[row][col] = CLIP((int)(65535.0f*rgb[indx][1] + 0.5f));
@@ -996,8 +1009,7 @@ void CLASS amaze_demosaic_RT() {
 
 					//for dcraw implementation
 					for (c=0; c<3; c++){
-						//image[indx][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
-						image[indx1][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
+						image[indx][c] = CLIP((int)(65535.0f*rgb[rr*TS+cc][c] + 0.5f)); 
 					} 
 
 
@@ -1006,12 +1018,6 @@ void CLASS amaze_demosaic_RT() {
 
 			// clean up
 			//free(buffer);
-			progress+=(double)((TS-32)*(TS-32))/(height*width);
-			if (progress>1.0)
-			{
-				progress=1.0;
-			}
-			//if(plistener) plistener->setProgress(progress);
 		}
 
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1020,6 +1026,14 @@ void CLASS amaze_demosaic_RT() {
 
 	// clean up
 	free(buffer);
+}		
+		t2 = clock();
+	dt = ((double)(t2-t1)) / CLOCKS_PER_SEC;
+#ifdef DCRAW_VERBOSE
+	if (verbose) {
+		fprintf(stderr,_("elapsed time = %5.3fs\n"),dt);
+#endif	
+	
 }
 	// done
 
