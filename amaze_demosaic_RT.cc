@@ -1032,9 +1032,9 @@ void CLASS amaze_demosaic_RT() {
 #ifdef DCRAW_VERBOSE
 	if (verbose) {
 		fprintf(stderr,_("elapsed time = %5.3fs\n"),dt);
+        }
 #endif	
 	
-}
 	// done
 
 #undef TS

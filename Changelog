@@ -1,5 +1,5 @@
 2010-11-27 Alex Tutubalin <lexa@lexa.ru>
-	   * Imported new AMaZE and CA_correct code by JD
+	   * Imported new AMaZE and CA_correct code provided by Jacques Desmis
 2010-11-27 Alex Tutubalin <lexa@lexa.ru>
 	   * malloc changed to calloc to make valgrind happy with
 	     uninitialized values
