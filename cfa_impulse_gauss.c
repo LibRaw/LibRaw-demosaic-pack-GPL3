@@ -38,7 +38,9 @@ void CLASS cfa_impulse_gauss(float lclean, float cclean)
 	int compte1=0;
 	static const float eps1=1e-10;
 	
+#ifdef DCRAW_VERBOSE
 	if (verbose) fprintf (stderr,_("CFA impulse-hot and gaussian denoise [E.Martinec +JD] g:%1.4f  br:%1.4f\n"), lclean,cclean);
+#endif
 	t1 = clock();
 	border_interpolate(16);
 	float noisevar=SQRF(lclean); 
@@ -220,12 +222,13 @@ void CLASS cfa_impulse_gauss(float lclean, float cclean)
 	// done 
 	t2 = clock();
 	dt = ((double)(t2-t1)) / CLOCKS_PER_SEC;
+#ifdef DCRAW_VERBOSE
 	if (verbose) {
 		fprintf(stderr,_("done in = %5.3fs\n"),dt);  
 		/*		fprintf(stderr,_("   MAIN       = %5.3fs\n"),
 		 (double)t2_main/CLOCKS_PER_SEC);   */
 	}
-	
+#endif	
 	
 }
 //}

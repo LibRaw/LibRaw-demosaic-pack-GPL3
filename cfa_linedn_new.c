@@ -45,7 +45,9 @@ void CLASS cfa_linedn(float linenoise){
 			bbrr[j][i] = aarr[j][i];
 		dctblock[j] = bbrr[j];
 	}
+#ifdef DCRAW_VERBOSE
 	if (verbose) fprintf (stderr,_("CFA line denoise v2b OMP [E.Martinec] %1.4f \n"), linenoise);
+#endif
 	t1 = clock();
 	
 	float noisevar=SQRF(3*linenoise); // _noise_ (as a fraction of saturation) is input to the algorithm
@@ -208,10 +210,11 @@ void CLASS cfa_linedn(float linenoise){
 	// done
 	t2 = clock();
 	dt = ((double)(t2-t1)) / CLOCKS_PER_SEC;
+#ifdef DCRAW_VERBOSE
 	if (verbose) {
 		fprintf(stderr,_("elapsed time = %5.3fs\n"),dt);
 	}
-	
+#endif	
 	
 }
 #undef TS

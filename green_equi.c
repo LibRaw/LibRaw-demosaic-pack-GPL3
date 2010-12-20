@@ -47,7 +47,9 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 	//clock_t t1_main,       t2_main       = 0;
 	
 	// start
+#ifdef DCRAW_VERBOSE
 	if (verbose) fprintf (stderr,_("Green equilibration v1[E.Martinec]...\n"));
+#endif
 	t1 = clock();
 	
 	
@@ -200,10 +202,11 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 	//done
 	t2 = clock();
 	dt = ((double)(t2-t1)) / CLOCKS_PER_SEC;
+#ifdef DCRAW_VERBOSE
 	if (verbose) {
 		fprintf(stderr,_("elapsed time = %5.3fs\n"),dt);
 	}
-	
+#endif	
 	
 }
 #undef TS
