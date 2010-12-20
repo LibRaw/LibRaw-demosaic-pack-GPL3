@@ -1,4 +1,7 @@
-2010-11-27 Alex Tutubalin <lexa@lexa.ru>
+2010-12-20 Alex Tutubalin <lexa@lexa.ru>
+	   * Green equilibration, CFA pixel cleaning and CFA line denoise by
+	     Emil Martinec. Code adaped to LibRaw by Jacques Desmis
+2010-12-13 Alex Tutubalin <lexa@lexa.ru>
 	   * Imported new AMaZE and CA_correct code provided by Jacques Desmis
 2010-11-27 Alex Tutubalin <lexa@lexa.ru>
 	   * malloc changed to calloc to make valgrind happy with
