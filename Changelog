@@ -1,5 +1,6 @@
 2011-01-10 Alex Tutubalin <lexa@lexa.ru>
 	* OpenMP for green equilibration
+	* Expocorrection before interpolation by Jackues Desmis
 2010-12-20 Alex Tutubalin <lexa@lexa.ru>
 	   * Green equilibration, CFA pixel cleaning and CFA line denoise by
 	     Emil Martinec. Code adaped to LibRaw by Jacques Desmis
