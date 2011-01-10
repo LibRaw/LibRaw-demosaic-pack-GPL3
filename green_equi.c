@@ -2,7 +2,7 @@
 // by Emil Martinec
 // 2/18/2010
 #define TS 256	 // Tile size
-
+//modification OMP J.Desmis - december 2010
 //#define CLASS
 /*#define ushort UshORt
 typedef unsigned char uchar;
@@ -48,10 +48,34 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 	
 	// start
 #ifdef DCRAW_VERBOSE
-	if (verbose) fprintf (stderr,_("Green equilibration v1[E.Martinec]...\n"));
+	if (verbose) fprintf(stderr,_("Green equilibration v1 OMP [E.Martinec] %1.3f...\n"),thresh);	
 #endif
-	t1 = clock();
 	
+	
+	
+	t1 = clock();
+#if defined (LIBRAW_USE_OPENMP)	
+#pragma omp parallel
+#endif
+{		
+	int top,left;
+			char		*buffer;			// TS*TS*16
+			float         (*cfa);		// TS*TS*4
+			float         (*checker);			// TS*TS*4
+			float         (*gvar);			// TS*TS*4
+			float         (*gdiffv);			// TS*TS*4
+			float         (*gdiffh);			// TS*TS*4
+			
+			/* assign working space */
+			buffer = (char *) calloc((5*sizeof(float)+sizeof(int))*TS*TS,1);
+			//merror(buffer,"green_equil()");
+			memset(buffer,0,5*sizeof(float)*TS*TS);
+			
+			cfa         = (float (*))		buffer;
+			checker		= (float (*))			(buffer +	sizeof(float)*TS*TS);
+			gvar		= (float (*))			(buffer +	2*sizeof(float)*TS*TS);
+			gdiffv		= (float (*))			(buffer +	3*sizeof(float)*TS*TS);
+			gdiffh		= (float (*))			(buffer +	4*sizeof(float)*TS*TS);
 	
 
 	
@@ -60,7 +84,9 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 	// Fill G interpolated values with border interpolation and input values
 	// Main algorithm: Tile loop
 //#pragma omp parallel for shared(image,height,width) private(top,left) schedule(dynamic)
-
+#if defined (LIBRAW_USE_OPENMP)
+#pragma omp for schedule(dynamic) nowait 
+#endif	
 	for (top=0; top < height-border; top += TS-border2)
 		for (left=0; left < width-border; left += TS-border2) {
 			int bottom = MIN( top+TS,height);
@@ -79,31 +105,6 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 			float mcorr, pcorr;
 			float ginterp;
 			float diffvarh, diffvarv, hvwt;
-			
-			char		*buffer;			// TS*TS*16
-			float         (*cfa);		// TS*TS*4
-			float         (*checker);			// TS*TS*4
-			float         (*gvar);			// TS*TS*4
-			float         (*gdiffv);			// TS*TS*4
-			float         (*gdiffh);			// TS*TS*4
-			
-			/* assign working space */
-			buffer = (char *) malloc(5*sizeof(float)*TS*TS);
-			//merror(buffer,"green_equil()");
-			memset(buffer,0,5*sizeof(float)*TS*TS);
-			
-			cfa         = (float (*))		buffer;
-			checker		= (float (*))			(buffer +	sizeof(float)*TS*TS);
-			gvar		= (float (*))			(buffer +	2*sizeof(float)*TS*TS);
-			gdiffv		= (float (*))			(buffer +	3*sizeof(float)*TS*TS);
-			gdiffh		= (float (*))			(buffer +	4*sizeof(float)*TS*TS);
-			
-			/*float	cfa[TS*TS];
-			float	checker[TS*TS];  //this memory allocation crashes RT
-			float	gvar[TS*TS];
-			
-			memset( (void *)&cfa[0], 0 ,sizeof(cfa) );*/
-			
 			// rgb from input CFA data
 			/* rgb values should be floating point number between 0 and 1 
 			 after white balance multipliers are applied */
@@ -194,19 +195,22 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 				} 
 
 			// clean up
-			free(buffer);
+		//}
 		
 		}
+		free(buffer);
 
 	
 	//done
+	}
 	t2 = clock();
 	dt = ((double)(t2-t1)) / CLOCKS_PER_SEC;
 #ifdef DCRAW_VERBOSE
+	
 	if (verbose) {
 		fprintf(stderr,_("elapsed time = %5.3fs\n"),dt);
-	}
-#endif	
+				}
+#endif				
 	
 }
 #undef TS
