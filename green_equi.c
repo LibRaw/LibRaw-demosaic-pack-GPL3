@@ -34,6 +34,8 @@ void CLASS green_equilibrate(float thresh)//for dcraw implementation
 //+	int height=H, width=W; //for RT only
 	int top, left; 
 
+	if(half_size) return;
+
 	int verbose=1;
 	
 	static const float eps=1.0;	//tolerance to avoid dividing by zero
